@@ -1,0 +1,385 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Perfis de usuários, cargos e permissões administrativas",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "username": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "moderador", "editor", "leitor", "convidado"] },
+        "isBanned": { "type": "boolean" },
+        "banReason": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "avatarRemovedByAdmin": { "type": "boolean" },
+        "avatarRemovedAt": { "type": "string" },
+        "avatarRemovedReason": { "type": "string" },
+        "avatarRemovedBy": { "type": "string" },
+        "isGeminiPremium": { "type": "boolean" },
+        "geminiPlan": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "WikiCollection": {
+      "title": "WikiCollection",
+      "description": "Coleções e tópicos temáticos da enciclopédia",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "titulo": { "type": "string" },
+        "descricao": { "type": "string" },
+        "categoria": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["uid", "titulo"]
+    },
+    "WikiArticle": {
+      "title": "WikiArticle",
+      "description": "Artigos em formato wikitext e metadados",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "pageUid": { "type": "string" },
+        "titulo": { "type": "string" },
+        "descricao": { "type": "string" },
+        "autor": { "type": "string" },
+        "categoria": { "type": "string" }
+      },
+      "required": ["id", "pageUid", "titulo"]
+    },
+    "Page": {
+      "title": "Page",
+      "description": "Páginas do WikiZero organizadas por Namespaces (main, talk, user, template, etc.) e Categorias",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "namespace": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "categories": { "type": "array" },
+        "templateName": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "version": { "type": "number" }
+      },
+      "required": ["id", "namespace", "title", "content"]
+    },
+    "Template": {
+      "title": "Template",
+      "description": "Predefinições de conteúdo com suporte a substituição de parâmetros {{{param}}}",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "content": { "type": "string" },
+        "description": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name", "content"]
+    },
+    "PageVersion": {
+      "title": "PageVersion",
+      "description": "Revisões e versões históricas de uma página (MediaWiki style)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "pageId": { "type": "string" },
+        "versionNumber": { "type": "number" },
+        "content": { "type": "string" },
+        "userName": { "type": "string" },
+        "userId": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "comment": { "type": "string" },
+        "previousVersion": { "type": ["number", "null"] }
+      },
+      "required": ["versionNumber", "content", "userName", "userId", "timestamp", "comment"]
+    },
+    "UserPage": {
+      "title": "UserPage",
+      "description": "Página de perfil e espaço de usuário (/userpage)",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "username": { "type": "string" },
+        "content": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId"]
+    },
+    "RecentChange": {
+      "title": "RecentChange",
+      "description": "Registros de alterações recentes em verbetes e coleções para auditoria e histórico em tempo real",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string" },
+        "articleTitle": { "type": "string" },
+        "autor": { "type": "string" },
+        "data": { "type": "string" },
+        "resumo": { "type": "string" }
+      },
+      "required": ["id", "type", "articleTitle", "autor", "data"]
+    },
+    "TalkThread": {
+      "title": "TalkThread",
+      "description": "Tópicos de discussão e debate editorial de artigos da enciclopédia",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "articleId": { "type": "string" },
+        "titulo": { "type": "string" },
+        "conteudo": { "type": "string" },
+        "autor": { "type": "string" },
+        "data": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "articleId", "titulo", "conteudo", "autor", "data"]
+    },
+    "UserTalkMessage": {
+      "title": "UserTalkMessage",
+      "description": "Mensagens públicas na página de discussão de um usuário",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "targetUserUid": { "type": "string" },
+        "titulo": { "type": "string" },
+        "conteudo": { "type": "string" },
+        "senderName": { "type": "string" },
+        "data": { "type": "string" }
+      },
+      "required": ["id", "targetUserUid", "titulo", "conteudo", "data"]
+    },
+    "UnblockRequest": {
+      "title": "UnblockRequest",
+      "description": "Pedidos de apelação e desbloqueio de contas suspensas",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userUid": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "justificativa": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userUid", "justificativa", "status", "createdAt"]
+    },
+    "SystemUpdateEntry": {
+      "title": "SystemUpdateEntry",
+      "description": "Notas de atualização e versões do sistema sincronizadas no Firebase por administradores",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "version": { "type": "string" },
+        "title": { "type": "string" },
+        "date": { "type": "string" },
+        "category": { "type": "string", "enum": ["feature", "improvement", "fix", "security", "infra", "compliance"] },
+        "author": { "type": "string" },
+        "authorRole": { "type": "string" },
+        "summary": { "type": "string" },
+        "highlights": { "type": "array" },
+        "badge": { "type": "string" },
+        "affectedComponents": { "type": "array" },
+        "commitHash": { "type": "string" },
+        "isLatest": { "type": "boolean" }
+      },
+      "required": ["id", "version", "title", "date", "category", "author", "summary", "highlights"]
+    },
+    "GeminiNotebook": {
+      "title": "GeminiNotebook",
+      "description": "Cadernos de pesquisa, fontes e síntese de artigos do Gemini Notebook",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "userId": { "type": "string" },
+        "sources": { "type": "array" },
+        "notes": { "type": "array" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "title", "createdAt"]
+    },
+    "UcocReport": {
+      "title": "UcocReport",
+      "description": "Denúncias formais e procedimentos de apuração do Universal Code of Conduct (UCoC)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "protocolNumber": { "type": "string" },
+        "category": { "type": "string" },
+        "severity": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "targetUsername": { "type": "string" },
+        "reporterName": { "type": "string" },
+        "reporterUid": { "type": "string" },
+        "isAnonymousOrConfidential": { "type": "boolean" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "protocolNumber", "category", "title", "targetUsername", "status", "createdAt"]
+    },
+    "LibraryItem": {
+      "title": "LibraryItem",
+      "description": "Itens do acervo bibliográfico da biblioteca física e digital (livros, periódicos, teses, manuscritos)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "tipo": { "type": "string", "enum": ["livro", "periodico", "tese", "artigo_cientifico", "obra_rara", "partitura", "mapa", "audiovisual"] },
+        "titulo": { "type": "string" },
+        "subtitulo": { "type": "string" },
+        "autores": { "type": "array" },
+        "editora": { "type": "string" },
+        "anoPublicacao": { "type": "number" },
+        "isbn": { "type": "string" },
+        "issn": { "type": "string" },
+        "cdd": { "type": "string" },
+        "localizacao": { "type": "object" },
+        "exemplaresTotais": { "type": "number" },
+        "exemplaresDisponiveis": { "type": "number" },
+        "statusCirculacao": { "type": "string" }
+      },
+      "required": ["id", "tipo", "titulo", "autores", "editora", "anoPublicacao"]
+    },
+    "LibraryReview": {
+      "title": "LibraryReview",
+      "description": "Avaliações e resenhas críticas da comunidade para itens do acervo",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "itemId": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "rating": { "type": "number" },
+        "reviewTitle": { "type": "string" },
+        "reviewText": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "itemId", "userId", "userName", "rating", "reviewText", "createdAt"]
+    },
+    "AcademicPublication": {
+      "title": "AcademicPublication",
+      "description": "Publicações científicas, teses, dissertações, artigos, preprints e anais do Wiki Universitário / Google Acadêmico",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "tipo": { "type": "string" },
+        "titulo": { "type": "string" },
+        "anoPublicacao": { "type": "number" },
+        "resumo": { "type": "string" },
+        "statusAcesso": { "type": "string" },
+        "statusRevisao": { "type": "string" },
+        "totalCitacoes": { "type": "number" },
+        "dataCriacao": { "type": "string" }
+      },
+      "required": ["id", "tipo", "titulo", "anoPublicacao", "resumo", "statusAcesso", "statusRevisao", "dataCriacao"]
+    },
+    "AcademicPeerReview": {
+      "title": "AcademicPeerReview",
+      "description": "Avaliação por pares aberta e pareceres acadêmicos para publicações do Wiki Universitário",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "publicationId": { "type": "string" },
+        "reviewerUid": { "type": "string" },
+        "reviewerName": { "type": "string" },
+        "tituloParecer": { "type": "string" },
+        "parecerTexto": { "type": "string" },
+        "parecerDecisao": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "publicationId", "reviewerUid", "reviewerName", "tituloParecer", "parecerTexto", "parecerDecisao", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/ucoc_reports/{reportId}": {
+      "schema": "UcocReport",
+      "description": "Denúncias formais e procedimentos do Código Universal de Conduta"
+    },
+    "/gemini_notebooks/{notebookId}": {
+      "schema": "GeminiNotebook",
+      "description": "Cadernos de pesquisa e notas do Gemini Notebook para inserção em artigos"
+    },
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Documentos de usuários e permissões"
+    },
+    "/userpage/{userId}": {
+      "schema": "UserPage",
+      "description": "Páginas e subpáginas de usuários"
+    },
+    "/documentos/{pageUid}": {
+      "schema": "WikiCollection",
+      "description": "Coleções de tópicos"
+    },
+    "/documentos/{pageUid}/inevitavel/{articleId}": {
+      "schema": "WikiArticle",
+      "description": "Artigos da enciclopédia"
+    },
+    "/articles/{articleId}": {
+      "schema": "WikiArticle",
+      "description": "Artigos da enciclopédia com sincronização persistente global no Firestore"
+    },
+    "/pages/{pageId}": {
+      "schema": "Page",
+      "description": "Páginas da enciclopédia organizadas por namespaces e categorias"
+    },
+    "/pages/{pageId}/versions/{versionId}": {
+      "schema": "PageVersion",
+      "description": "Subcoleção de versões históricas e revisões de cada página"
+    },
+    "/templates/{templateId}": {
+      "schema": "Template",
+      "description": "Predefinições e modelos de conteúdo para renderização dinâmica"
+    },
+    "/banned_users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Lista de usuários banidos"
+    },
+    "/audit_logs/{logId}": {
+      "schema": "object",
+      "description": "Registros de auditoria administrativa"
+    },
+    "/recent_changes/{changeId}": {
+      "schema": "RecentChange",
+      "description": "Mudanças recentes gravadas em tempo real"
+    },
+    "/talk_threads/{threadId}": {
+      "schema": "TalkThread",
+      "description": "Páginas de discussão e tópicos de artigos"
+    },
+    "/user_talk_messages/{messageId}": {
+      "schema": "UserTalkMessage",
+      "description": "Mensagens nas páginas de discussão dos usuários"
+    },
+    "/unblock_requests/{requestId}": {
+      "schema": "UnblockRequest",
+      "description": "Pedidos de apelação de desbloqueio de usuários"
+    },
+    "/system_updates/{updateId}": {
+      "schema": "SystemUpdateEntry",
+      "description": "Notas de versão e atualizações do sistema gerenciadas por administradores"
+    },
+    "/library_items/{itemId}": {
+      "schema": "LibraryItem",
+      "description": "Itens catalogados do acervo bibliográfico (livros, periódicos, teses)"
+    },
+    "/library_reviews/{reviewId}": {
+      "schema": "LibraryReview",
+      "description": "Avaliações e resenhas críticas dos itens do acervo bibliográfico"
+    },
+    "/academic_publications/{pubId}": {
+      "schema": "AcademicPublication",
+      "description": "Publicações científicas, teses, dissertações, artigos e preprints do Wiki Universitário"
+    },
+    "/academic_peer_reviews/{reviewId}": {
+      "schema": "AcademicPeerReview",
+      "description": "Pareceres de revisão por pares aberta para produções científicas"
+    }
+  }
+}

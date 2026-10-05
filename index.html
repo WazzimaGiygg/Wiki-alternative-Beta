@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WikiWorldWeb - Enciclopédia Livre</title>
+    <!-- Filter benign Vite websocket disconnection logs in sandboxed dev environment -->
+    <script>
+      (function () {
+        // Intercept Vite development WebSockets to prevent connection refused errors in sandboxed containers
+        if (typeof window !== 'undefined' && window.WebSocket) {
+          var NativeWebSocket = window.WebSocket;
+          window.WebSocket = function (url, protocols) {
+            var urlStr = String(url || '');
+            var protoStr = Array.isArray(protocols) ? protocols.join(',') : String(protocols || '');
+            var isViteSocket =
+              urlStr.indexOf('24678') !== -1 ||
+              urlStr.indexOf('token=') !== -1 ||
+              urlStr.indexOf('@vite') !== -1 ||
+              protoStr.indexOf('vite-hmr') !== -1 ||
+              protoStr.indexOf('vite-ping') !== -1;
+
+            if (isViteSocket) {
+              var listeners = {};
+              var self = {
+                url: urlStr,
+                protocol: Array.isArray(protocols) ? protocols[0] : (protocols || ''),
+                readyState: 0,
+                CONNECTING: 0,
+                OPEN: 1,
+                CLOSING: 2,
+                CLOSED: 3,
+                binaryType: 'blob',
+                bufferedAmount: 0,
+                extensions: '',
+                onopen: null,
+                onclose: null,
+                onerror: null,
+                onmessage: null,
+                addEventListener: function (type, fn) {
+                  if (!listeners[type]) listeners[type] = [];
+                  listeners[type].push(fn);
+                  if (type === 'open' && self.readyState === 1) {
+                    setTimeout(function () {
+                      try { fn({ type: 'open', target: self }); } catch (_) {}
+                    }, 0);
+                  }
+                },
+                removeEventListener: function (type, fn) {
+                  if (listeners[type]) {
+                    listeners[type] = listeners[type].filter(function (f) { return f !== fn; });
+                  }
+                },
+                dispatchEvent: function (evt) {
+                  var type = evt && evt.type;
+                  if (type && listeners[type]) {
+                    listeners[type].forEach(function (fn) {
+                      try { fn(evt); } catch (_) {}
+                    });
+                  }
+                  return true;
+                },
+                send: function () {},
+                close: function () {
+                  self.readyState = 3;
+                  if (self.onclose) {
+                    try { self.onclose({ type: 'close', wasClean: true, code: 1000, target: self }); } catch (_) {}
+                  }
+                  if (listeners['close']) {
+                    listeners['close'].forEach(function (fn) {
+                      try { fn({ type: 'close', wasClean: true, code: 1000, target: self }); } catch (_) {}
+                    });
+                  }
+                }
+              };
+
+              setTimeout(function () {
+                self.readyState = 1;
+                var openEvt = { type: 'open', target: self };
+                if (self.onopen) {
+                  try { self.onopen(openEvt); } catch (_) {}
+                }
+                if (listeners['open']) {
+                  listeners['open'].forEach(function (fn) {
+                    try { fn(openEvt); } catch (_) {}
+                  });
+                }
+              }, 0);
+
+              return self;
+            }
+
+            try {
+              if (typeof Reflect !== 'undefined' && Reflect.construct) {
+                return Reflect.construct(NativeWebSocket, arguments);
+              }
+              return new (Function.prototype.bind.apply(NativeWebSocket, [null].concat(Array.prototype.slice.call(arguments))))();
+            } catch (_) {
+              return new NativeWebSocket(url, protocols);
+            }
+          };
+
+          window.WebSocket.CONNECTING = 0;
+          window.WebSocket.OPEN = 1;
+          window.WebSocket.CLOSING = 2;
+          window.WebSocket.CLOSED = 3;
+          window.WebSocket.prototype = NativeWebSocket.prototype;
+        }
+
+        // Prevent window.alert from throwing in sandboxed iframes
+        if (typeof window !== 'undefined' && window.top !== window.self) {
+          window.alert = function (msg) {
+            console.warn('[WikiZero Alert in sandbox]:', msg);
+          };
+        }
+
+        var isViteNotice = function (msg) {
+          if (!msg) return false;
+          var s = '';
+          try {
+            s = typeof msg === 'string' ? msg : (msg && msg.message) ? msg.message : (msg && msg.stack) ? msg.stack : JSON.stringify(msg);
+          } catch (_) {
+            s = String(msg);
+          }
+          var lower = s.toLowerCase();
+          return (
+            lower.indexOf('[vite]') !== -1 ||
+            lower.indexOf('vite:') !== -1 ||
+            lower.indexOf('failed to connect to websocket') !== -1 ||
+            lower.indexOf('websocket connection to') !== -1 ||
+            lower.indexOf('connection refused') !== -1 ||
+            lower.indexOf('vite-hmr') !== -1 ||
+            lower.indexOf('vite-ping') !== -1
+          );
+        };
+        var filterArgs = function (args) {
+          for (var i = 0; i < args.length; i++) {
+            if (isViteNotice(args[i])) return true;
+          }
+          return false;
+        };
+        var origError = console.error;
+        var origWarn = console.warn;
+        var origLog = console.log;
+        var origInfo = console.info;
+        var origDebug = console.debug;
+        console.error = function () {
+          if (filterArgs(arguments)) return;
+          origError.apply(console, arguments);
+        };
+        console.warn = function () {
+          if (filterArgs(arguments)) return;
+          origWarn.apply(console, arguments);
+        };
+        console.log = function () {
+          if (filterArgs(arguments)) return;
+          origLog.apply(console, arguments);
+        };
+        console.info = function () {
+          if (filterArgs(arguments)) return;
+          origInfo.apply(console, arguments);
+        };
+        console.debug = function () {
+          if (filterArgs(arguments)) return;
+          origDebug.apply(console, arguments);
+        };
+        window.addEventListener(
+          'error',
+          function (e) {
+            if (e && (isViteNotice(e.message) || isViteNotice(e.error) || isViteNotice(e.filename))) {
+              e.stopImmediatePropagation();
+              e.preventDefault();
+            }
+          },
+          true
+        );
+        window.addEventListener(
+          'unhandledrejection',
+          function (e) {
+            if (e && (isViteNotice(e.reason) || (e.reason && isViteNotice(e.reason.message)))) {
+              e.stopImmediatePropagation();
+              e.preventDefault();
+            }
+          },
+          true
+        );
+      })();
+    </script>
+    <meta name="description" content="WikiWorldWeb - A Enciclopédia Livre, Rápida e Sem Anúncios. Uma alternativa moderna e aberta à Wikipédia, MediaWiki, Wikidot e Fandom com editor wikitexto em tempo real, Gemini Notebook, Wiki dos Livros, Wiki Universitário (Google Acadêmico), Jornal WazzimaGiygg (edição digital e notícias em tempo real), temas visuais e sincronização Cloud Firestore." />
+    
+    <!-- Primary SEO & Crawler Meta Tags -->
+    <meta name="keywords" content="WikiWorldWeb, WikiWorldWeb Enciclopédia, WazzimaGiygg, Caso Wazzimagiygg, Wiki-alternative, alternativa à wikipedia, alternativa wikipedia, alternativa fandom, fandom sem anuncios, alternativa mediawiki, alternativa wikidot, enciclopedia livre, enciclopédia aberta, wiki colaborativa sem censura, editor wikitexto, importar google docs wiki, google docs para wiki, software livre, enciclopedia sem anuncios, wikipedia competitor, free encyclopedia" />
+    <meta name="author" content="WazzimaGiygg / WikiWorldWeb Community" />
+    <meta name="publisher" content="WikiWorldWeb" />
+    <meta name="creator" content="WazzimaGiygg" />
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+    <meta name="googlebot" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+    <meta name="bingbot" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+    <meta name="revisit-after" content="1 days" />
+    <meta name="rating" content="General" />
+    <link rel="canonical" href="https://ais-pre-ul5azgclkwy3zltg3iyxlw-842441289091.us-east1.run.app/" />
+    <link rel="alternate" hreflang="pt-BR" href="https://ais-pre-ul5azgclkwy3zltg3iyxlw-842441289091.us-east1.run.app/" />
+    <link rel="alternate" hreflang="x-default" href="https://ais-pre-ul5azgclkwy3zltg3iyxlw-842441289091.us-east1.run.app/" />
+
+    <!-- OpenSearch & Sitemap Autodiscovery -->
+    <link rel="search" type="application/opensearchdescription+xml" title="WikiWorldWeb" href="/opensearch.xml" />
+    <link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml" />
+
+    <meta name="theme-color" content="#2563eb" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="WikiWorldWeb" />
+    <meta name="application-name" content="WikiWorldWeb" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="alternate icon" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192x192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/pwa-512x512.png" />
+
+    <!-- Open Graph / Facebook / WhatsApp -->
+    <meta property="og:title" content="WikiWorldWeb - Enciclopédia Livre" />
+    <meta property="og:description" content="WikiWorldWeb - A Enciclopédia Livre, Rápida e Sem Anúncios. Uma alternativa moderna e aberta à Wikipédia, MediaWiki, Wikidot e Fandom com editor wikitexto em tempo real, Gemini Notebook, Wiki dos Livros, Wiki Universitário (Google Acadêmico), Jornal WazzimaGiygg (edição digital e notícias em tempo real), temas visuais e sincronização Cloud Firestore." />
+    <meta property="og:site_name" content="WikiWorldWeb" />
+    <meta property="og:url" content="https://ais-pre-ul5azgclkwy3zltg3iyxlw-842441289091.us-east1.run.app/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="pt_BR" />
+    <meta property="og:image" content="https://ais-pre-ul5azgclkwy3zltg3iyxlw-842441289091.us-east1.run.app/pwa-512x512.png" />
+    <meta property="og:image:alt" content="WikiWorldWeb - Enciclopédia Livre e Aberta" />
+
+    <!-- Twitter / X Cards -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="WikiWorldWeb - Enciclopédia Livre" />
+    <meta name="twitter:description" content="WikiWorldWeb - A Enciclopédia Livre, Rápida e Sem Anúncios. Uma alternativa moderna e aberta à Wikipédia, MediaWiki, Wikidot e Fandom com editor wikitexto em tempo real e temas visuais exclusivos." />
+    <meta name="twitter:image" content="https://ais-pre-ul5azgclkwy3zltg3iyxlw-842441289091.us-east1.run.app/pwa-512x512.png" />
+
+    <!-- Schema.org JSON-LD Structured Data for Search Engines -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebSite",
+          "@id": "https://ais-pre-ul5azgclkwy3zltg3iyxlw-842441289091.us-east1.run.app/#website",
+          "url": "https://ais-pre-ul5azgclkwy3zltg3iyxlw-842441289091.us-east1.run.app/",
+          "name": "WikiWorldWeb",
+          "alternateName": ["WikiWorldWeb Enciclopédia Livre", "WikiWorldWeb Alternative Encyclopedia"],
+          "description": "Enciclopédia colaborativa livre, rápida e sem anúncios intrusivos. Alternativa aberta à Wikipédia, MediaWiki, Wikidot e Fandom.",
+          "inLanguage": "pt-BR",
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+              "@type": "EntryPoint",
+              "urlTemplate": "https://ais-pre-ul5azgclkwy3zltg3iyxlw-842441289091.us-east1.run.app/?uid=search&q={search_term_string}"
+            },
+            "query-input": "required name=search_term_string"
+          }
+        },
+        {
+          "@type": "Organization",
+          "@id": "https://ais-pre-ul5azgclkwy3zltg3iyxlw-842441289091.us-east1.run.app/#organization",
+          "name": "WikiWorldWeb Community",
+          "url": "https://ais-pre-ul5azgclkwy3zltg3iyxlw-842441289091.us-east1.run.app/",
+          "founder": {
+            "@id": "https://wazzimagiygg.com/#person"
+          },
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://ais-pre-ul5azgclkwy3zltg3iyxlw-842441289091.us-east1.run.app/pwa-512x512.png",
+            "width": 512,
+            "height": 512
+          },
+          "sameAs": [
+            "https://github.com/WazzimaGiygg/Wiki-alternative",
+            "https://wazzimagiygg.com/averdade/",
+            "https://support.wazzimagiygg.com/"
+          ]
+        },
+        {
+          "@type": "Person",
+          "@id": "https://wazzimagiygg.com/#person",
+          "name": "WazzimaGiygg",
+          "alternateName": ["Wazzimagiygg", "Wazzima Giygg", "Criador WikiWorldWeb"],
+          "url": "https://wazzimagiygg.com/",
+          "sameAs": [
+            "https://wazzimagiygg.com/",
+            "https://wazzimagiygg.com/averdade/",
+            "https://support.wazzimagiygg.com/",
+            "https://github.com/WazzimaGiygg/Wiki-alternative",
+            "https://ais-pre-ul5azgclkwy3zltg3iyxlw-842441289091.us-east1.run.app/?uid=wazzimagiygg"
+          ],
+          "jobTitle": "Desenvolvedor de Software e Criador da WikiWorldWeb",
+          "knowsAbout": [
+            "Enciclopédias Livres Colaborativas",
+            "Software Livre Open Source",
+            "Wikitexto e Sistemas Wiki",
+            "Transparência Editorial e LGPD"
+          ],
+          "description": "Desenvolvedor de software livre, fundador da WikiWorldWeb e autor do dossiê público 'A Verdade' (wazzimagiygg.com/averdade/)."
+        },
+        {
+          "@type": "ProfilePage",
+          "@id": "https://ais-pre-ul5azgclkwy3zltg3iyxlw-842441289091.us-east1.run.app/?uid=wazzimagiygg#profile",
+          "url": "https://ais-pre-ul5azgclkwy3zltg3iyxlw-842441289091.us-east1.run.app/?uid=wazzimagiygg",
+          "name": "WazzimaGiygg - Portal Oficial, Projetos e A Verdade sobre o Caso Wikipédia",
+          "description": "Portal oficial, projetos e esclarecimento documental completo sobre o Caso Wazzimagiygg na Wikipédia e as motivações da criação da enciclopédia WikiWorldWeb.",
+          "mainEntity": {
+            "@id": "https://wazzimagiygg.com/#person"
+          },
+          "mentions": [
+            {
+              "@type": "WebPage",
+              "name": "Wikipédia:Pedidos a verificadores/Caso/Wazzimagiygg",
+              "url": "https://pt.wikipedia.org/wiki/Wikip%C3%A9dia:Pedidos_a_verificadores/Caso/Wazzimagiygg",
+              "description": "Esclarecimento oficial e refutação documental das alegações arbitrárias de verificadores da Wikipédia."
+            }
+          ]
+        }
+      ]
+    }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700;800&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400&family=Noto+Sans:wght@400;500;600;700&family=Roboto:wght@300;400;500;700&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- Google Reader Revenue Manager (Subscribe with Google / SwG Contributions) -->
+    <script async type="application/javascript" src="https://news.google.com/swg/js/v1/swg-basic.js"></script>
+
+    <!-- Dedicated Print & PDF Export Stylesheet -->
+    <link rel="stylesheet" href="/src/print.css" media="print" />
+  </head>
+  <body class="bg-slate-50 text-slate-900 antialiased selection:bg-blue-100 selection:text-blue-900">
+    <div id="root">
+      <div style="min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; color: #1e293b;">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+          <img src="/logo.png" alt="WikiZero" style="width: 40px; height: 40px; object-fit: contain; border-radius: 4px;" />
+          <span style="font-size: 22px; font-weight: 700; letter-spacing: -0.02em;">WikiZero / WikiWorldWeb</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #64748b;">
+          <div style="width: 16px; height: 16px; border: 2px solid #2563eb; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+          <span>Carregando enciclopédia livre...</span>
+        </div>
+        <style>
+          @keyframes spin { to { transform: rotate(360deg); } }
+        </style>
+      </div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

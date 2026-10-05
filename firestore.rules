@@ -1,0 +1,314 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ==========================================
+    // FUNÇÕES AUXILIARES
+    // ==========================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isNotBanned() {
+      return isAuthenticated() && 
+        !exists(/databases/$(database)/documents/banned_users/$(request.auth.uid));
+    }
+
+    function isRegistered() {
+      return isAuthenticated() && isNotBanned();
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function userDocExists() {
+      return exists(/databases/$(database)/documents/userpage/$(request.auth.uid)) ||
+             exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+    
+    function getUserData() {
+      return exists(/databases/$(database)/documents/userpage/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/userpage/$(request.auth.uid)).data
+        : get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function isSuperAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.email == 'pedrohenriquecardonaperes@gmail.com' ||
+        (exists(/databases/$(database)/documents/userpage/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/userpage/$(request.auth.uid)).data.email == 'pedrohenriquecardonaperes@gmail.com')
+      );
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && (
+        isSuperAdmin() ||
+        (userDocExists() && (
+          getUserData().group in ['admin', 'administrador', 'superadmin'] ||
+          getUserData().role in ['admin', 'administrador', 'superadmin']
+        ))
+      );
+    }
+    
+    function isEditor() {
+      return isRegistered() && (
+        isAdmin() ||
+        (userDocExists() && (
+          getUserData().group in ['editor', 'admin', 'moderador', 'administrador'] ||
+          getUserData().role in ['editor', 'moderador', 'admin', 'administrador']
+        ))
+      );
+    }
+    
+    function isUserInGroup(allowedGroups) {
+      return isRegistered() && (
+        isAdmin() ||
+        (userDocExists() && (
+          getUserData().group in allowedGroups ||
+          getUserData().role in allowedGroups
+        )) ||
+        ('registered' in allowedGroups && isRegistered())
+      );
+    }
+
+    // ==========================================
+    // COLEÇÕES - TODAS COM LEITURA PÚBLICA
+    // ==========================================
+
+    // ✅ Coleção principal de páginas - leitura pública
+    match /pages/{pageId} {
+      allow read: if true;  // ✅ Qualquer um pode ler
+      allow create, update: if isAuthenticated() && isNotBanned();
+      allow delete: if isAdmin();
+
+      match /versions/{versionId} {
+        allow read: if true;  // ✅ Qualquer um pode ler histórico
+        allow create, update: if isAuthenticated() && isNotBanned();
+        allow delete: if isAdmin();
+      }
+    }
+
+    // ✅ Coleção principal de artigos WikiZero - leitura pública, sincronização em tempo real
+    match /articles/{articleId} {
+      allow read: if true;  // ✅ Qualquer um pode ler
+      allow create, update: if isAuthenticated() && isNotBanned();
+      allow delete: if isAdmin();
+    }
+
+    // ✅ Coleção de documentos e artigos em tópicos - leitura pública
+    match /documentos/{pageUid} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isNotBanned();
+      
+      match /inevitavel/{articleId} {
+        allow read: if true;
+        allow create, update: if isAuthenticated() && isNotBanned();
+        allow delete: if isAdmin();
+      }
+    }
+
+    // ✅ Templates - leitura pública
+    match /templates/{templateId} {
+      allow read: if true;  // ✅ Qualquer um pode ver templates
+      allow create: if isEditor() && request.resource.data.name is string && request.resource.data.content is string;
+      allow update: if isEditor();
+      allow delete: if isAdmin();
+    }
+
+    // ✅ Páginas de usuário - leitura pública
+    match /userpage/{userId} {
+      allow read: if true;  // ✅ Qualquer um pode ver perfis públicos
+      allow create, update: if isAuthenticated() && isNotBanned();
+      allow delete: if isAdmin() || isSuperAdmin();
+    }
+
+    // ⚠️ Perfis de usuários - leitura pública (apenas informações não sensíveis)
+    match /users/{userId} {
+      allow read: if true;  // ✅ Qualquer um pode ver dados básicos
+      allow create, update: if isAuthenticated() && isNotBanned();
+      allow delete: if isAdmin() || isSuperAdmin();
+    }
+
+    // ⚠️ Lista de banimentos - leitura pública para verificação de bloqueio
+    match /banned_users/{userId} {
+      allow read: if true;  // ✅ Qualquer um pode verificar se está bloqueado
+      allow write: if isAdmin();
+    }
+
+    // ⚠️ Logs de auditoria
+    match /audit_logs/{logId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && isNotBanned();
+      allow update, delete: if isAdmin();
+    }
+
+    // ✅ Discussões de usuário
+    match /user_talk_messages/{messageId} {
+      allow read: if true;
+      allow create, update: if isAuthenticated() && isNotBanned();
+      allow delete: if isAdmin();
+    }
+
+    // ✅ Notificações do sistema e usuários
+    match /notifications/{notificationId} {
+      allow read: if true;
+      allow create, update: if isAuthenticated() && isNotBanned();
+      allow delete: if isAdmin();
+    }
+
+    // ✅ Notas de versão e atualizações do sistema
+    match /system_updates/{updateId} {
+      allow read: if true;
+      allow write: if isAdmin() || (isAuthenticated() && isNotBanned());
+    }
+
+    // ✅ Pedidos de desbloqueio de contas (Usuários bloqueados PODEM criar pedidos de apelação)
+    match /unblock_requests/{requestId} {
+      allow read: if true;
+      allow create, update: if true;
+      allow delete: if isAdmin();
+    }
+
+    // ✅ Pedidos de promoção (RfA)
+    match /promotion_requests/{requestId} {
+      allow read: if true;
+      allow create, update: if (request.auth == null || isNotBanned());
+      allow delete: if isAdmin();
+    }
+
+    // ✅ Central de ajuda e tickets da administração
+    match /admin_tickets/{ticketId} {
+      allow read: if true;
+      allow create, update: if (request.auth == null || isNotBanned());
+      allow delete: if isAdmin();
+    }
+
+    // ✅ Denúncias Formais do Universal Code of Conduct (UCoC)
+    match /ucoc_reports/{reportId} {
+      allow get: if true;
+      allow list: if isAdmin() || (isAuthenticated() && resource.data.reporterUid == request.auth.uid);
+      allow create: if (request.auth == null || isNotBanned());
+      allow update, delete: if isAdmin();
+    }
+
+    // ✅ Chamados e notificações de contato de emergência em casos extremos (ÁREA RESTRITA DA ADMINISTRAÇÃO)
+    match /emergency_reports/{reportId} {
+      allow get: if true;
+      allow list: if isAdmin() || (isAuthenticated() && resource.data.reporterUid == request.auth.uid);
+      allow create: if (request.auth == null || isNotBanned());
+      allow update, delete: if isAdmin();
+    }
+
+    // ✅ Registros de limitação e consulta de chamados por IP (1 chamado por usuário não logado)
+    match /emergency_ip_records/{ipRecordId} {
+      allow read: if true;
+      allow create, update: if (request.auth == null || isNotBanned());
+      allow delete: if isAdmin();
+    }
+
+    // ✅ Casos e membros do Conselho de Arbitragem (ArbCom)
+    match /arbitration_cases/{caseId} {
+      allow read: if true;
+      allow create, update: if (request.auth == null || isNotBanned());
+      allow delete: if isAdmin();
+    }
+    match /arbitration_members/{memberId} {
+      allow read: if true;
+      allow create, update: if (request.auth == null || isNotBanned());
+      allow delete: if isAdmin();
+    }
+
+    // ✅ Investigações de sockpuppet e CheckUser
+    match /sockpuppet_cases/{caseId} {
+      allow read: if true;
+      allow create, update: if (request.auth == null || isNotBanned());
+      allow delete: if isAdmin();
+    }
+    match /checkuser_logs/{logId} {
+      allow read: if true;
+      allow create, update: if (request.auth == null || isNotBanned());
+      allow delete: if isAdmin();
+    }
+    match /checkuser_accounts/{accountId} {
+      allow read: if true;
+      allow create, update: if (request.auth == null || isNotBanned());
+      allow delete: if isAdmin();
+    }
+
+    // ⚠️ Watchlist - apenas o dono pode ver
+    match /watchlist/{itemId} {
+      allow read: if isRegistered() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isRegistered() && request.resource.data.userId == request.auth.uid;
+      allow update: if isRegistered() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if isRegistered() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // ✅ Discussões e tópicos de discussão comunitária
+    match /talk_threads/{threadId} {
+      allow read: if true;
+      allow create, update: if isAuthenticated() && isNotBanned();
+      allow delete: if isAdmin();
+    }
+
+    // ✅ Avaliações comunitárias de artigos
+    match /ratings/{articleId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isNotBanned();
+    }
+
+    // ✅ Gemini Notebooks - pesquisa e notas de artigos
+    match /gemini_notebooks/{notebookId} {
+      allow read: if true;
+      allow create, update: if isAuthenticated() && isNotBanned();
+      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // ✅ Mudanças e logs recentes
+    match /recent_changes/{changeId} {
+      allow read: if true;
+      allow create, update: if isAuthenticated() && isNotBanned();
+      allow delete: if isAdmin();
+    }
+
+    // ✅ Wiki dos Livros e Periódicos (Acervo Bibliográfico Físico e Digital)
+    match /library_items/{itemId} {
+      allow read: if true;
+      allow create, update: if isAuthenticated() && isNotBanned();
+      allow delete: if isAdmin();
+    }
+
+    // ✅ Avaliações e resenhas críticas do acervo bibliográfico
+    match /library_reviews/{reviewId} {
+      allow read: if true;
+      allow create, update: if isAuthenticated() && isNotBanned();
+      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // ✅ Wiki Universitário / Repositório Acadêmico (Artigos, Teses, Dissertações, Preprints - Google Acadêmico)
+    match /academic_publications/{pubId} {
+      allow read: if true;
+      allow create, update: if isAuthenticated() && isNotBanned();
+      allow delete: if isAdmin() || (isAuthenticated() && resource.data.submittedByUid == request.auth.uid);
+    }
+
+    // ✅ Pareceres e Avaliação por Pares do Wiki Universitário
+    match /academic_peer_reviews/{reviewId} {
+      allow read: if true;
+      allow create, update: if isAuthenticated() && isNotBanned();
+      allow delete: if isAuthenticated() && (resource.data.reviewerUid == request.auth.uid || isAdmin());
+    }
+
+    // ✅ Telemetria e métricas de uso do Firestore em tempo real
+    match /system_telemetry/{docId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // ✅ Regra fallback - leitura pública, escrita apenas para registrados
+    match /{document=**} {
+      allow read: if true;  // ✅ QUALQUER UM PODE LER TUDO
+      allow write: if isRegistered();
+    }
+  }
+}
